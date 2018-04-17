@@ -21,6 +21,7 @@ jdk:
   - openjdk8
 # travis gradle is 4 which does not work with java 9
 script:
-  - curl -LO https://services.gradle.org/distributions/gradle-4.4.1-bin.zip
-  - unzip -q gradle-4.4.1-bin.zip
-  - ./gradle-4.4.1/bin/gradle test
+  - ./gradle-4.6/bin/gradle test
+install:
+  - curl -LO https://downloads.gradle.org/distributions/gradle-4.6-bin.zip
+  - unzip -q gradle-4.6-bin.zip
