@@ -49,6 +49,13 @@ public interface Event {
     byte[] getBody();
 
     /**
+     * Event body
+     *
+     * @return Event body
+     */
+    Object getBodyObject();
+
+    /**
      * Event header
      *
      * @param key Header name (case insensitive)
