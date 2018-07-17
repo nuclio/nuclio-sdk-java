@@ -49,6 +49,13 @@ public interface Event {
     byte[] getBody();
 
     /**
+     * Event body
+     *
+     * @return Event body
+     */
+    Object getBodyObject();
+
+    /**
      * Event header
      *
      * @param key Header name (case insensitive)
@@ -78,7 +85,7 @@ public interface Event {
      * @param key Header name (case insensitive)
      * @return Event header value
      */
-     long getHeaderLong(String key);
+    long getHeaderLong(String key);
 
     /**
      * Event headers
@@ -141,14 +148,14 @@ public interface Event {
     String getPath();
 
     /**
-     * Event url
+     * Event URL
      *
-     * @return Event url (e.g. "http://nuclio.io")
+     * @return Event URL (e.g. "http://nuclio.io")
      */
     String getURL();
 
     /**
-     * Event path
+     * Event method
      *
      * @return Event method (e.g. "POST")
      */
@@ -167,4 +174,25 @@ public interface Event {
      * @return The total number of shards, if applicable
      */
     long getTotalNumShards();
+
+    /**
+     * Event type
+     *
+     * @return Event type
+     */
+    String getType();
+
+    /**
+     * Event type version
+     *
+     * @return Event type version
+     */
+    String getTypeVersion();
+
+    /**
+     * Event version
+     *
+     * @return Event version
+     */
+    String getVersion();
 }

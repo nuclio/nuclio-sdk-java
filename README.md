@@ -45,5 +45,7 @@ dependencies. We currently do not support maven/sbt/ant/... builds
     
     gradle jar
 
+Please use Java 8 to build the SDK jar for release
+
 [nuclio]: http://nuclio.io/
 [nuctl]: https://nuclio.io/docs/latest/reference/nuctl/nuctl_build/
