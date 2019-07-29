@@ -16,6 +16,9 @@ limitations under the License.
 
 version = '1.1.0'
 
+def sonatypeUsernameWithFallback = project.ext.properties.sonatypeUsername
+def sonatypePasswordWithFallback = project.ext.properties.sonatypePassword
+
 buildscript {
     repositories {
         mavenCentral()
@@ -94,8 +97,8 @@ publishing {
                 maven {
                     url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
                     credentials {
-                        username sonatypeUsername
-                        password sonatypePassword
+                        username sonatypeUsernameWithFallback
+                        password sonatypePasswordWithFallback
                     }
                 }
             }
