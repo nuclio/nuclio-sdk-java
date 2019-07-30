@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-version = '1.0-SNAPSHOT'
+version = '1.1.0'
+
+def sonatypeUsernameWithFallback = project.ext.properties.sonatypeUsername
+def sonatypePasswordWithFallback = project.ext.properties.sonatypePassword
 
 buildscript {
     repositories {
@@ -26,7 +29,30 @@ buildscript {
 }
  
 apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
+
 apply plugin: 'org.junit.platform.gradle.plugin'
+
+task sourceJar(type: Jar) {
+    classifier "sources"
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier "javadoc"
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives jar
+    archives sourceJar
+    archives javadocJar
+}
+
+signing {
+    sign configurations.archives
+}
  
 dependencies {
     testCompile(
@@ -49,4 +75,116 @@ jar {
     }
     version = version
     baseName = 'nuclio-sdk'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            customizePom(pom)
+            groupId 'io.nuclio'
+            artifactId 'nuclio-sdk-java'
+            version version
+
+            from components.java
+
+            artifact(sourceJar) {
+                classifier = 'sources'
+            }
+            artifact(javadocJar) {
+                classifier = 'javadoc'
+            }
+            repositories {
+                maven {
+                    url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+                    credentials {
+                        username sonatypeUsernameWithFallback
+                        password sonatypePasswordWithFallback
+                    }
+                }
+            }
+
+            // create the sign pom artifact
+            pom.withXml {
+                def pomFile = file("${project.buildDir}/generated-pom.xml")
+                writeTo(pomFile)
+                def pomAscFile = signing.sign(pomFile).signatureFiles[0]
+                artifact(pomAscFile) {
+                    classifier = null
+                    extension = 'pom.asc'
+                }
+            }
+            // create the signed artifacts
+            project.tasks.signArchives.signatureFiles.each {
+                artifact(it) {
+                    def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
+                    if (matcher.find()) {
+                        classifier = matcher.group(1)
+                    } else {
+                        classifier = null
+                    }
+                    extension = 'jar.asc'
+                }
+            }
+        }
+    }
+}
+
+def customizePom(pom) {
+    pom.withXml {
+        def root = asNode()
+
+        // eliminate test-scoped dependencies (no need in maven central POMs)
+        root.dependencies.removeAll { dep ->
+            dep.scope == "test"
+        }
+
+        // add all items necessary for maven central publication
+        root.children().last() + {
+            resolveStrategy = Closure.DELEGATE_FIRST
+
+            description 'Nuclio Java SDK'
+            name 'Nuclio Java SDK'
+            url 'https://github.com/nuclio/nuclio-sdk-java'
+            organization {
+                name 'io.nuclio'
+                url 'https://github.com/nuclio'
+            }
+            issueManagement {
+                system 'GitHub'
+                url 'https://github.com/nuclio/nuclio-sdk-java'
+            }
+            licenses {
+                license {
+                    name 'Apache License 2.0'
+                    url 'https://github.com/nuclio/nuclio-sdk-java/blob/master/LICENSE'
+                    distribution 'repo'
+                }
+            }
+            scm {
+                url 'https://github.com/nuclio/nuclio-sdk-java'
+                connection 'scm:git:git://github.com/nuclio/nuclio-sdk-java.git'
+                developerConnection 'scm:git:git@github.com:nuclio/nuclio-sdk-java.git'
+            }
+            developers {
+                developer {
+                    name 'Miki Tebeka'
+                }
+                developer {
+                    name 'Gal Topper'
+                }
+            }
+        }
+    }
+}
+
+model {
+    tasks.generatePomFileForMavenJavaPublication {
+        destination = file("$buildDir/generated-pom.xml")
+    }
+    tasks.publishMavenJavaPublicationToMavenLocal {
+        dependsOn project.tasks.signArchives
+    }
+    tasks.publishMavenJavaPublicationToMavenRepository {
+        dependsOn project.tasks.signArchives
+    }
 }
