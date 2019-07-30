@@ -4,6 +4,9 @@ Java SDK for [nuclio][nuclio].
 
 This SDK is for building nuclio Java handlers.
 
+### Adding as a dependency
+See https://search.maven.org/artifact/io.nuclio/nuclio-sdk-java/1.1.0/jar
+
 ### Building a Handler
 
 To implement a handler you need to write a class the implements
