@@ -5,7 +5,7 @@ Java SDK for [nuclio][nuclio].
 This SDK is for building nuclio Java handlers.
 
 ### Adding as a dependency
-See https://search.maven.org/artifact/io.nuclio/nuclio-sdk-java/1.3.0/jar
+See https://search.maven.org/artifact/io.nuclio/nuclio-sdk-java/1.4.0/jar
 
 ### Building a Handler
 
@@ -39,8 +39,9 @@ You can specify dependencies using (inline in Java file or Jar) build configurat
 ```
 
 
-The default image uses Eclipse Temurin (OpenJDK) 25 on amd64/arm64, and 17 on
-32-bit ARM (armhf), where no upstream Temurin 25 build exists yet.
+The default image uses Eclipse Temurin (OpenJDK) 25. The Java runtime is not
+supported on 32-bit ARM (armhf) — no upstream Temurin 25 build exists for that
+architecture.
 
 If you have dependencies in other packages, create a fat/uber Jar with all the
 dependencies. We currently do not support maven/sbt/ant/... builds
@@ -49,8 +50,7 @@ dependencies. We currently do not support maven/sbt/ant/... builds
 
     ./gradlew jar
 
-The SDK jar is compiled for Java 17 bytecode compatibility so it loads on every
-supported runtime image, including the armhf one. Build it with any JDK 17+.
+The SDK jar is compiled for Java 25 bytecode. Build it with JDK 25+.
 
 [nuclio]: http://nuclio.io/
 [nuctl]: https://nuclio.io/docs/latest/reference/nuctl/nuctl_build/
