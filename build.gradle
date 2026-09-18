@@ -14,33 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-version = '1.1.0'
+version = '1.4.0'
 
 def sonatypeUsernameWithFallback = project.ext.properties.sonatypeUsername
 def sonatypePasswordWithFallback = project.ext.properties.sonatypePassword
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.1'
-    }
-}
- 
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-apply plugin: 'org.junit.platform.gradle.plugin'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+base {
+    archivesName = 'nuclio-sdk'
+}
+
+test {
+    useJUnitPlatform()
+}
 
 task sourceJar(type: Jar) {
-    classifier "sources"
+    archiveClassifier.set("sources")
     from sourceSets.main.allJava
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier "javadoc"
+    archiveClassifier.set("javadoc")
     from javadoc.destinationDir
 }
 
@@ -51,15 +54,20 @@ artifacts {
 }
 
 signing {
-    sign configurations.archives
+    // Check if signing properties are available and sign the archives
+    if (project.hasProperty('signing.keyId') && project.hasProperty('signing.secretKeyRingFile') && project.hasProperty('signing.password')) {
+        useGpgCmd()  // Use the GPG command line tool to sign artifacts
+        sign configurations.archives
+    }
 }
- 
+
 dependencies {
-    testCompile(
-            'org.junit.jupiter:junit-jupiter-api:5.0.1'
+    testImplementation(
+        'org.junit.jupiter:junit-jupiter-api:5.8.2'
     )
-    testRuntime(
-            'org.junit.jupiter:junit-jupiter-engine:5.0.1',
+    testRuntimeOnly(
+        'org.junit.jupiter:junit-jupiter-engine:5.8.2',
+        'org.junit.platform:junit-platform-launcher',
     )
 }
 
@@ -70,11 +78,10 @@ repositories {
 jar {
     manifest {
         attributes 'Implementation-Title': 'nuclio-sdk',
-		   'Implementation-Version': version,
-		   'Implementation-Vendor': 'io.nuclio'
+                   'Implementation-Version': version,
+                   'Implementation-Vendor': 'io.nuclio'
     }
     version = version
-    baseName = 'nuclio-sdk'
 }
 
 publishing {
@@ -103,7 +110,7 @@ publishing {
                 }
             }
 
-            // create the sign pom artifact
+            // Create the signed pom artifact
             pom.withXml {
                 def pomFile = file("${project.buildDir}/generated-pom.xml")
                 writeTo(pomFile)
@@ -113,16 +120,14 @@ publishing {
                     extension = 'pom.asc'
                 }
             }
-            // create the signed artifacts
-            project.tasks.signArchives.signatureFiles.each {
-                artifact(it) {
-                    def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
-                    if (matcher.find()) {
-                        classifier = matcher.group(1)
-                    } else {
-                        classifier = null
+            // Create the signed artifacts for sources and javadoc
+            tasks.withType(Sign).configureEach {
+                if (it.name == "signArchives") {
+                    it.doLast {
+                        project.tasks.withType(Jar).matching { it.name.contains("sources") || it.name.contains("javadoc") }.each { jarTask ->
+                            signing.sign(jarTask)
+                        }
                     }
-                    extension = 'jar.asc'
                 }
             }
         }
@@ -133,12 +138,12 @@ def customizePom(pom) {
     pom.withXml {
         def root = asNode()
 
-        // eliminate test-scoped dependencies (no need in maven central POMs)
+        // Eliminate test-scoped dependencies (no need in Maven Central POMs)
         root.dependencies.removeAll { dep ->
             dep.scope == "test"
         }
 
-        // add all items necessary for maven central publication
+        // Add all items necessary for Maven Central publication
         root.children().last() + {
             resolveStrategy = Closure.DELEGATE_FIRST
 
