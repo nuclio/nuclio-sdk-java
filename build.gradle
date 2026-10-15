@@ -14,14 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+plugins {
+    id 'java'
+    id 'com.vanniktech.maven.publish' version '0.37.0'
+}
+
 version = '1.2.0'
-
-def sonatypeUsernameWithFallback = project.ext.properties.sonatypeUsername
-def sonatypePasswordWithFallback = project.ext.properties.sonatypePassword
-
-apply plugin: 'java'
-apply plugin: 'maven-publish'
-apply plugin: 'signing'
 
 java {
     toolchain {
@@ -35,30 +33,6 @@ base {
 
 test {
     useJUnitPlatform()
-}
-
-task sourceJar(type: Jar) {
-    archiveClassifier.set("sources")
-    from sourceSets.main.allJava
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    archiveClassifier.set("javadoc")
-    from javadoc.destinationDir
-}
-
-artifacts {
-    archives jar
-    archives sourceJar
-    archives javadocJar
-}
-
-signing {
-    // Check if signing properties are available and sign the archives
-    if (project.hasProperty('signing.keyId') && project.hasProperty('signing.secretKeyRingFile') && project.hasProperty('signing.password')) {
-        useGpgCmd()  // Use the GPG command line tool to sign artifacts
-        sign configurations.archives
-    }
 }
 
 dependencies {
@@ -81,115 +55,55 @@ jar {
                    'Implementation-Version': version,
                    'Implementation-Vendor': 'io.nuclio'
     }
-    version = version
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            customizePom(pom)
-            groupId 'io.nuclio'
-            artifactId 'nuclio-sdk-java'
-            version version
+// Publishes to Maven Central via the Central Portal. Sources and javadoc jars
+// are added automatically, and every artifact (including the POM) is signed.
+// Credentials come from the mavenCentralUsername / mavenCentralPassword Gradle
+// properties; signing uses the standard signing.* properties or
+// signingInMemoryKey / signingInMemoryKeyPassword.
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
 
-            from components.java
+    coordinates('io.nuclio', 'nuclio-sdk-java', version.toString())
 
-            artifact(sourceJar) {
-                classifier = 'sources'
+    pom {
+        name = 'Nuclio Java SDK'
+        description = 'Nuclio Java SDK'
+        url = 'https://github.com/nuclio/nuclio-sdk-java'
+        organization {
+            name = 'io.nuclio'
+            url = 'https://github.com/nuclio'
+        }
+        issueManagement {
+            system = 'GitHub'
+            url = 'https://github.com/nuclio/nuclio-sdk-java'
+        }
+        licenses {
+            license {
+                name = 'Apache License 2.0'
+                url = 'https://github.com/nuclio/nuclio-sdk-java/blob/master/LICENSE'
+                distribution = 'repo'
             }
-            artifact(javadocJar) {
-                classifier = 'javadoc'
+        }
+        scm {
+            url = 'https://github.com/nuclio/nuclio-sdk-java'
+            connection = 'scm:git:git://github.com/nuclio/nuclio-sdk-java.git'
+            developerConnection = 'scm:git:git@github.com:nuclio/nuclio-sdk-java.git'
+        }
+        developers {
+            developer {
+                name = 'Miki Tebeka'
             }
-            repositories {
-                maven {
-                    url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
-                    credentials {
-                        username sonatypeUsernameWithFallback
-                        password sonatypePasswordWithFallback
-                    }
-                }
-            }
-
-            // Create the signed pom artifact
-            pom.withXml {
-                def pomFile = file("${project.buildDir}/generated-pom.xml")
-                writeTo(pomFile)
-                def pomAscFile = signing.sign(pomFile).signatureFiles[0]
-                artifact(pomAscFile) {
-                    classifier = null
-                    extension = 'pom.asc'
-                }
-            }
-            // Create the signed artifacts for sources and javadoc
-            tasks.withType(Sign).configureEach {
-                if (it.name == "signArchives") {
-                    it.doLast {
-                        project.tasks.withType(Jar).matching { it.name.contains("sources") || it.name.contains("javadoc") }.each { jarTask ->
-                            signing.sign(jarTask)
-                        }
-                    }
-                }
+            developer {
+                name = 'Gal Topper'
             }
         }
     }
 }
 
-def customizePom(pom) {
-    pom.withXml {
-        def root = asNode()
-
-        // Eliminate test-scoped dependencies (no need in Maven Central POMs)
-        root.dependencies.removeAll { dep ->
-            dep.scope == "test"
-        }
-
-        // Add all items necessary for Maven Central publication
-        root.children().last() + {
-            resolveStrategy = Closure.DELEGATE_FIRST
-
-            description 'Nuclio Java SDK'
-            name 'Nuclio Java SDK'
-            url 'https://github.com/nuclio/nuclio-sdk-java'
-            organization {
-                name 'io.nuclio'
-                url 'https://github.com/nuclio'
-            }
-            issueManagement {
-                system 'GitHub'
-                url 'https://github.com/nuclio/nuclio-sdk-java'
-            }
-            licenses {
-                license {
-                    name 'Apache License 2.0'
-                    url 'https://github.com/nuclio/nuclio-sdk-java/blob/master/LICENSE'
-                    distribution 'repo'
-                }
-            }
-            scm {
-                url 'https://github.com/nuclio/nuclio-sdk-java'
-                connection 'scm:git:git://github.com/nuclio/nuclio-sdk-java.git'
-                developerConnection 'scm:git:git@github.com:nuclio/nuclio-sdk-java.git'
-            }
-            developers {
-                developer {
-                    name 'Miki Tebeka'
-                }
-                developer {
-                    name 'Gal Topper'
-                }
-            }
-        }
-    }
-}
-
-model {
-    tasks.generatePomFileForMavenJavaPublication {
-        destination = file("$buildDir/generated-pom.xml")
-    }
-    tasks.publishMavenJavaPublicationToMavenLocal {
-        dependsOn project.tasks.signArchives
-    }
-    tasks.publishMavenJavaPublicationToMavenRepository {
-        dependsOn project.tasks.signArchives
-    }
+// Signing is mandatory for Maven Central, optional for local publishes.
+signing {
+    setRequired { gradle.taskGraph.allTasks.any { it.name.contains('MavenCentral') } }
 }
