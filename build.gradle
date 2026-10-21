@@ -94,9 +94,6 @@ mavenPublishing {
         }
         developers {
             developer {
-                name = 'Miki Tebeka'
-            }
-            developer {
                 name = 'Gal Topper'
             }
         }
